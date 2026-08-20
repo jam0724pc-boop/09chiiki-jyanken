@@ -520,13 +520,24 @@
     font-size:min(13vh,74px); color:#fff; cursor:pointer; border:5px solid #111;
     box-shadow:0 7px 0 #0a0a0a, inset 0 -5px 9px rgba(0,0,0,.22), inset 0 5px 9px rgba(255,255,255,.55);
   }
-  /* 待機中は消灯。じゃんけんが始まったら点灯する */
+  /* 待機中は消灯（暗く・色を抜く）。じゃんけんが始まったらパッと点灯する */
   .hand-buttons button{
-    background:radial-gradient(circle at 35% 25%,#4a4f55,#2b2f34 60%,#1a1d21);
-    color:rgba(255,255,255,.28);
-    transition:background .25s, color .25s, filter .25s;
+    background:radial-gradient(circle at 35% 25%,#3d4147,#25282c 60%,#15171a);
+    filter:grayscale(1) brightness(.45);
+    opacity:.55;
+    box-shadow:0 7px 0 #0a0a0a, inset 0 6px 12px rgba(0,0,0,.7);
+    transition:background .2s, filter .2s, opacity .2s, box-shadow .2s;
   }
-  .hand-buttons.live button{ color:#fff; }
+  .hand-buttons.live button{
+    filter:none; opacity:1;
+    box-shadow:0 7px 0 #0a0a0a, inset 0 -5px 9px rgba(0,0,0,.22),
+               inset 0 5px 9px rgba(255,255,255,.55), 0 0 18px 4px rgba(255,255,255,.35);
+    animation:btnLightUp .45s ease-out;
+  }
+  @keyframes btnLightUp{
+    0%{ filter:brightness(2.6); transform:scale(1.1); }
+    100%{ filter:none; transform:scale(1); }
+  }
   .hand-buttons.live button[data-hand="rock"]{ background:radial-gradient(circle at 35% 25%,#ffb3b3,#e8202c 58%,#a3101a); }
   .hand-buttons.live button[data-hand="scissors"]{ background:radial-gradient(circle at 35% 25%,#fff6c2,#ffc518 58%,#c08800); }
   .hand-buttons.live button[data-hand="paper"]{ background:radial-gradient(circle at 35% 25%,#bfe4ff,#2f80d8 58%,#154a86); }
@@ -931,11 +942,11 @@ function playCheer(){
 /* ルーレットが回り続ける「トゥルルル…」の連続音 */
 let trillStep = 0;
 function trillTick(){
-  const seq = [880, 1046, 1175, 1046];
+  const seq = [784, 988, 1175, 1319, 1175, 988];
   const f = seq[trillStep % seq.length];
   trillStep++;
-  beep(f, 0, 0.055, 'square', 0.16);
-  beep(f*2, 0, 0.035, 'sine', 0.06);
+  beep(f, 0, 0.07, 'square', 0.26);
+  beep(f*1.5, 0, 0.05, 'triangle', 0.12);
 }
 function playTaiko(){
   const ctx=getCtx();
@@ -1323,9 +1334,10 @@ function createJankenController(opts){
     els.result.classList.remove('show','win-stamp','lose-stamp','draw-stamp');
     speakSeq([{text:'ジャン'},{text:'ケン！', rate:1.05, pitch:2.0}]);
     sparkleOn();
+    bgm.duck(1200);
     if(els.bezelSpin) els.bezelSpin.classList.add('on');
     els.handPanel.classList.add('live');
-    trillTimer=setInterval(trillTick,90);
+    trillStep=0; trillTick(); trillTimer=setInterval(trillTick,75);
     startHandCycle();
   }
 
