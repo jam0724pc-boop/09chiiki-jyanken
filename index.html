@@ -222,32 +222,20 @@
     font-size:clamp(96px,30vw,180px);
   }
 
-  /* 相手の子の手：普段は非表示、ボタンを押した瞬間だけ中央にポップアップ */
-  .opponent-popup{
-    position:absolute; inset:0; z-index:8;
-    display:flex; align-items:center; justify-content:center;
-    pointer-events:none; opacity:0; transform:scale(.55);
-    transition:opacity .22s ease-out, transform .22s ease-out;
+  /* 相手の子が押したボタンを強調表示 */
+  .hand-buttons button.picked{
+    animation:pickedPulse 1.6s ease-out;
+    outline:5px solid #fff;
+    outline-offset:3px;
+    z-index:5;
   }
-  .opponent-popup.show{ opacity:1; transform:scale(1); }
-  .opponent-popup-inner{
-    display:flex; flex-direction:column; align-items:center; gap:8px;
-    background:rgba(10,10,10,.68); border-radius:22px; padding:14px 22px 18px;
-    box-shadow:0 12px 34px rgba(0,0,0,.55);
+  @keyframes pickedPulse{
+    0%{ transform:scale(1.28); box-shadow:0 0 0 0 rgba(255,255,255,.95), 0 0 40px 18px rgba(255,255,255,.9); filter:brightness(2.2); }
+    45%{ transform:scale(1.16); box-shadow:0 0 0 22px rgba(255,255,255,0), 0 0 30px 12px rgba(255,255,255,.6); filter:brightness(1.5); }
+    100%{ transform:scale(1.12); box-shadow:0 8px 0 #0a0a0a, 0 0 22px 8px rgba(255,255,255,.55); filter:brightness(1.25); }
   }
-  .popup-vs{
-    font-family:'DotGothic16'; color:#fff; font-size:clamp(11px,2.6vw,14px);
-    background:var(--red); padding:3px 12px; border-radius:10px;
-  }
-  .popup-hand{
-    width:clamp(96px,26vw,150px); height:clamp(96px,26vw,150px); border-radius:50%;
-    background:radial-gradient(circle at 50% 45%, #ff5b5b 0%, var(--red-deep) 55%, #4a0004 100%);
-    border:4px solid #ffdede;
-    display:flex; align-items:center; justify-content:center;
-    font-size:clamp(46px,13vw,74px);
-    box-shadow:0 0 22px 6px rgba(226,36,44,.75), inset 0 0 14px rgba(0,0,0,.5);
-    filter:drop-shadow(0 0 5px #fff);
-  }
+  .hand-buttons button.picked{ transform:scale(1.12); }
+  .hand-buttons button.dimmed{ opacity:.3; filter:grayscale(.6); transition:opacity .2s, filter .2s; }
 
   .hand-frame{ position:relative; width:clamp(84px,24vw,140px); height:clamp(84px,24vw,140px); }
   .player-hand, .cpu-hand{
@@ -503,12 +491,6 @@
               <div class="player-hand" id="p_playerHand">❔</div>
             </div>
           </div>
-          <div class="opponent-popup" id="p_opponentPopup">
-            <div class="opponent-popup-inner">
-              <div class="popup-vs">VS あいての て</div>
-              <div class="popup-hand" id="p_opponentHand">❔</div>
-            </div>
-          </div>
           <div class="roulette-box" id="p_roulette">7 7 7</div>
           <div class="result-banner" id="p_result">タップして スタート！</div>
 
@@ -536,12 +518,6 @@
             <div class="wheel-ring"></div>
             <div class="big-hand-frame" id="h_playerFrame">
               <div class="player-hand" id="h_playerHand">❔</div>
-            </div>
-          </div>
-          <div class="opponent-popup" id="h_opponentPopup">
-            <div class="opponent-popup-inner">
-              <div class="popup-vs">VS あそびに きた こ</div>
-              <div class="popup-hand" id="h_opponentHand">❔</div>
             </div>
           </div>
           <div class="roulette-box" id="h_roulette">7 7 7</div>
@@ -808,15 +784,13 @@ function createJankenController(opts){
   const screenEl = stageEl.closest('.screen');
   const els = {
     playerHand: document.getElementById(opts.playerHandId),
-    opponentHand: document.getElementById(opts.opponentHandId),
     result: document.getElementById(opts.resultId),
     stepStart: document.getElementById(opts.stepStartId),
     choiceButtons: stageEl.querySelectorAll('.hand-buttons button'),
     careMsg: document.getElementById(opts.careMsgId),
     resetBtn: document.getElementById(opts.resetBtnId),
     giftSign: opts.giftSignId ? document.getElementById(opts.giftSignId) : null,
-    roulette: opts.rouletteId ? document.getElementById(opts.rouletteId) : null,
-    opponentPopup: opts.opponentPopupId ? document.getElementById(opts.opponentPopupId) : null
+    roulette: opts.rouletteId ? document.getElementById(opts.rouletteId) : null
   };
   let phase = 'idle'; /* idle | running | result */
   let currentHand = 'rock';
@@ -870,12 +844,10 @@ function createJankenController(opts){
     sparkleOff();
     if (els.roulette) els.roulette.classList.remove('active');
     els.playerHand.textContent = '❔';
-    els.opponentHand.textContent = '❔';
     els.playerHand.classList.remove('flash','land-flash');
-    els.opponentHand.classList.remove('flash','land-flash');
+    els.choiceButtons.forEach(b=> b.classList.remove('picked','dimmed'));
     els.result.textContent = '';
     els.result.classList.remove('stamp','lose');
-    if (els.opponentPopup) els.opponentPopup.classList.remove('show');
     els.careMsg.classList.remove('show');
     els.careMsg.textContent = '';
     els.resetBtn.classList.remove('show');
@@ -890,7 +862,7 @@ function createJankenController(opts){
     els.stepStart.style.display = 'none';
     els.careMsg.classList.remove('show');
     els.resetBtn.classList.remove('show');
-    els.opponentHand.textContent = '❔';
+    els.choiceButtons.forEach(b=> b.classList.remove('picked','dimmed'));
     els.result.textContent = '';
     els.result.classList.remove('stamp','lose');
     speak('ジャンケン！');
@@ -911,9 +883,12 @@ function createJankenController(opts){
 
     const myHandFinal = currentHand;
     els.playerHand.textContent = handEmoji[myHandFinal];
-    els.opponentHand.textContent = handEmoji[hand];
     els.playerHand.classList.add('land-flash');
-    if (els.opponentPopup) els.opponentPopup.classList.add('show');
+    /* 押したボタンを強調、それ以外は控えめに */
+    els.choiceButtons.forEach(b=>{
+      if (b.dataset.hand === hand) b.classList.add('picked');
+      else b.classList.add('dimmed');
+    });
     playPon();
     setTimeout(()=> els.playerHand.classList.remove('land-flash'), 480);
 
@@ -938,18 +913,16 @@ function createJankenController(opts){
       speak('やったー！きみの かち！');
       playWin();
     } else {
-      /* じゃんけんマンが勝ち ＝ 相手の子の負け */
-      els.result.textContent = '💦 ざんねん！ また あそぼう！';
-      els.result.classList.add('stamp','lose');
-      speak('ざんねん！また あそぼう！');
-      playLose();
+      /* 相手の子が負けでも、この後の巡行を応援する言葉にする */
+      els.result.textContent = '⛩️ おみこし ファイト！';
+      els.result.classList.add('stamp');
+      speak('おみこし ファイト！');
+      playWin();
     }
-    els.opponentHand.classList.add('flash');
     if (opts.confetti) confettiBurst();
     playCelebrate();
 
     setTimeout(()=>{
-      els.opponentHand.classList.remove('flash');
       const msg = opts.messages[Math.floor(Math.random()*opts.messages.length)];
       els.careMsg.textContent = msg;
       els.careMsg.classList.add('show');
@@ -991,21 +964,26 @@ const honbanMessages = [
   'あついなか おつかれさま！ きてくれて ありがとう！',
   'いっぱい あるいてきたね！ おかしを たべて げんきに なってね！',
   'おまつり がんばってね！ きてくれて ありがとう！',
-  'エネルギー チャージ！ このあとも ファイト！'
+  'エネルギー チャージ！ このあとも ファイト！',
+  'このあとの おみこしも がんばってね！',
+  'げんきに ワッショイ！ おうえん してるよ！',
+  'おみこし かっこいいね！ さいごまで ファイト！',
+  'すこし やすんだら また ワッショイ！',
+  'みんなの おみこし たのしんでね！'
 ];
 
 createJankenController({
   stageId:'practiceStage',
-  playerHandId:'p_playerHand', opponentHandId:'p_opponentHand', resultId:'p_result',
-  stepStartId:'p_stepStart', opponentPopupId:'p_opponentPopup',
+  playerHandId:'p_playerHand', resultId:'p_result',
+  stepStartId:'p_stepStart',
   careMsgId:'p_careMsg', resetBtnId:'p_resetBtn', rouletteId:'p_roulette',
   messages: practiceMessages, confetti:false
 });
 
 createJankenController({
   stageId:'honbanStage',
-  playerHandId:'h_playerHand', opponentHandId:'h_opponentHand', resultId:'h_result',
-  stepStartId:'h_stepStart', opponentPopupId:'h_opponentPopup',
+  playerHandId:'h_playerHand', resultId:'h_result',
+  stepStartId:'h_stepStart',
   careMsgId:'h_careMsg', resetBtnId:'h_resetBtn', giftSignId:'giftSign', rouletteId:'h_roulette',
   messages: honbanMessages, confetti:true
 });
