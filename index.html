@@ -9,18 +9,21 @@
 <link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet">
 <style>
   :root{
-    --red:#e2242c;
-    --red-deep:#a3151c;
-    --yellow:#ffc93c;
-    --gold:#ffe28a;
-    --orange:#ff8a3c;
+    --red:#c8102e;        /* 幟の朱 */
+    --red-deep:#8c0a20;
+    --vermilion:#e04a2f;  /* 鳥居の朱 */
+    --navy:#1b2a4a;       /* 幟の紺 */
+    --navy-deep:#101a30;
+    --yellow:#e8b43a;
+    --gold:#f3d98b;
+    --orange:#d9713a;
     --dark:#1a1a1a;
-    --cream:#fff6e0;
-    --green:#2ec4b6;
-    --blueacc:#2f6fb3;
-    --purple:#7b2cbf;
-    --panel-gray:#c6cbcc;
-    --panel-gray-dark:#9aa0a2;
+    --cream:#fff8ec;
+    --green:#2e7d6b;
+    --blueacc:#2a4d80;
+    --purple:#5c3a7e;
+    --panel-gray:#e8e3d6;
+    --panel-gray-dark:#c3bda9;
   }
   *{box-sizing:border-box; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; touch-action:manipulation;}
   html,body{
@@ -29,7 +32,7 @@
     font-family:'DotGothic16','Zen Maru Gothic',sans-serif;
   }
   body{
-    background:radial-gradient(circle at 50% 0%, #55554f, #29291f 85%);
+    background:radial-gradient(circle at 50% 0%, #33456e, var(--navy-deep) 85%);
     color:var(--dark);
   }
   ::-webkit-scrollbar{ display:none; }
@@ -46,9 +49,9 @@
     width:100%; height:100dvh;
     display:flex; flex-direction:column;
     padding:min(1.6vw,10px);
-    background:linear-gradient(160deg,#fff 0%,#eceae4 55%,#d8d6ce 100%);
+    background:linear-gradient(160deg,#fffdf7 0%,#f4efe2 55%,#e2dbc8 100%);
     border-radius:20px;
-    box-shadow: inset 0 0 0 2px #fff, 0 0 40px rgba(0,0,0,.6);
+    box-shadow: inset 0 0 0 3px var(--navy), inset 0 0 0 6px #fff, 0 0 40px rgba(0,0,0,.6);
     overflow:hidden;
   }
   .screen-panel{
@@ -63,9 +66,22 @@
     overflow:hidden;
   }
 
-  .bg-deco{ position:absolute; opacity:.08; pointer-events:none; font-size:20vw; z-index:0; }
-  .bg-deco.torii{ left:-5vw; bottom:-4vw; }
-  .bg-deco.fire{ right:-6vw; top:3vw; font-size:15vw; }
+  .bg-deco{ position:absolute; opacity:.10; pointer-events:none; z-index:0; }
+  .bg-deco.torii{ left:-4vw; bottom:-3vw; font-size:18vw; }
+  .bg-deco.fire{ right:-5vw; top:2vw; font-size:13vw; }
+
+  /* お神輿のシルエット（千鳥担ぎのように左右に揺れる） */
+  .mikoshi{
+    position:absolute; left:50%; bottom:2%;
+    width:min(40vw,340px); z-index:1; opacity:.13; pointer-events:none;
+    transform-origin:50% 100%;
+    animation:mikoshiSway 3.6s ease-in-out infinite;
+  }
+  @keyframes mikoshiSway{
+    0%,100%{ transform:translateX(-52%) rotate(-2.6deg); }
+    50%{ transform:translateX(-48%) rotate(2.6deg); }
+  }
+  .mikoshi svg{ width:100%; height:auto; display:block; }
 
   /* ===== 画面切り替え ===== */
   .screen{ display:none; position:absolute; inset:0; z-index:2; }
@@ -76,11 +92,20 @@
     flex-direction:column; align-items:center; justify-content:center;
     padding:12px 16px; gap:min(2.2vh,16px);
   }
-  .lantern-row{ display:flex; justify-content:center; gap:4vw; }
-  .lantern{ position:relative; width:clamp(18px,3.4vw,28px); }
+  .lantern-row{
+    display:flex; justify-content:center; align-items:flex-start;
+    gap:min(2.2vw,14px); flex-wrap:nowrap;
+    padding-top:4px;
+  }
+  .lantern{ position:relative; width:clamp(15px,2.8vw,26px); flex:0 0 auto; }
   .lantern::before{
     content:''; position:absolute; left:50%; top:-7px; width:2px; height:7px;
     background:#8a6a2a; transform:translateX(-50%);
+  }
+  /* 「例大祭」の3つは幟の紺色にして区別する */
+  .lantern.sep .body{
+    background:radial-gradient(circle at 35% 25%,#7d92bd,var(--navy) 70%,var(--navy-deep));
+    border-color:var(--gold); color:var(--gold);
   }
   .lantern .body{
     width:100%; aspect-ratio:1/1.15; border-radius:50%;
@@ -215,14 +240,14 @@
   .wheel-ring{
     position:absolute; inset:0; border-radius:50%;
     background:conic-gradient(
-      var(--red) 0deg 30deg, var(--orange) 30deg 60deg, var(--yellow) 60deg 90deg,
-      var(--red) 90deg 120deg, var(--orange) 120deg 150deg, var(--yellow) 150deg 180deg,
-      var(--red) 180deg 210deg, var(--orange) 210deg 240deg, var(--yellow) 240deg 270deg,
-      var(--red) 270deg 300deg, var(--orange) 300deg 330deg, var(--yellow) 330deg 360deg
+      var(--red) 0deg 30deg, var(--cream) 30deg 60deg, var(--navy) 60deg 90deg,
+      var(--red) 90deg 120deg, var(--cream) 120deg 150deg, var(--navy) 150deg 180deg,
+      var(--red) 180deg 210deg, var(--cream) 210deg 240deg, var(--navy) 240deg 270deg,
+      var(--red) 270deg 300deg, var(--cream) 300deg 330deg, var(--navy) 330deg 360deg
     );
-    border:4px solid #7a4a10;
-    box-shadow:0 0 0 3px #fff, 0 0 26px 6px rgba(255,140,20,.55), 0 4px 10px rgba(0,0,0,.3);
-    opacity:.92;
+    border:4px solid var(--gold);
+    box-shadow:0 0 0 3px #fff, 0 0 26px 6px rgba(200,16,46,.45), 0 4px 10px rgba(0,0,0,.3);
+    opacity:.95;
   }
   /* 放射状の光条（後光） */
   .wheel-rays{
@@ -462,15 +487,42 @@
     <div class="flash-overlay" id="flashOverlay"></div>
     <div class="bg-deco torii">⛩️</div>
     <div class="bg-deco fire">🎆</div>
+    <div class="mikoshi" aria-hidden="true">
+      <svg viewBox="0 0 320 200" fill="#101a30">
+        <!-- 屋根の上の鳳凰 -->
+        <path d="M160 6c4 0 7 3 7 7 0 4-3 6-5 8l6 4-9 3-9-3 6-4c-2-2-5-4-5-8 0-4 3-7 9-7z"/>
+        <!-- 大屋根 -->
+        <path d="M160 26 268 74H52z"/>
+        <rect x="46" y="74" width="228" height="11" rx="4"/>
+        <!-- 軒下の飾り -->
+        <rect x="72" y="88" width="176" height="7" rx="3"/>
+        <!-- 本体 -->
+        <rect x="88" y="98" width="144" height="52" rx="5"/>
+        <rect x="104" y="108" width="112" height="34" rx="3" fill="#33456e"/>
+        <!-- 台座 -->
+        <rect x="76" y="152" width="168" height="10" rx="4"/>
+        <!-- 担ぎ棒（横） -->
+        <rect x="8" y="166" width="304" height="9" rx="4"/>
+        <rect x="8" y="184" width="304" height="7" rx="3"/>
+        <!-- 担ぎ棒を支える柱 -->
+        <rect x="104" y="162" width="9" height="26"/>
+        <rect x="207" y="162" width="9" height="26"/>
+      </svg>
+    </div>
 
     <!-- ===== トップ画面 ===== -->
     <section id="top" class="screen active">
       <div class="lantern-row">
-        <div class="lantern"><div class="body">祭</div></div>
+        <div class="lantern"><div class="body">十</div></div>
+        <div class="lantern"><div class="body">二</div></div>
+        <div class="lantern"><div class="body">社</div></div>
         <div class="lantern"><div class="body">熊</div></div>
-        <div class="lantern"><div class="body">祭</div></div>
         <div class="lantern"><div class="body">野</div></div>
-        <div class="lantern"><div class="body">祭</div></div>
+        <div class="lantern"><div class="body">神</div></div>
+        <div class="lantern"><div class="body">社</div></div>
+        <div class="lantern sep"><div class="body">例</div></div>
+        <div class="lantern sep"><div class="body">大</div></div>
+        <div class="lantern sep"><div class="body">祭</div></div>
       </div>
       <div class="logo-block">
         <div class="lightning">⚡</div>
