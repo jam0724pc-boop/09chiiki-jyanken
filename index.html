@@ -215,16 +215,61 @@
     box-shadow:0 0 0 3px #fff, 0 0 26px 6px rgba(255,140,20,.55), 0 4px 10px rgba(0,0,0,.3);
     opacity:.92;
   }
-  .big-hand-frame{ position:relative; z-index:3; width:86%; height:86%; }
+  /* 放射状の光条（後光） */
+  .wheel-rays{
+    position:absolute; inset:-6%; border-radius:50%; z-index:1;
+    background:repeating-conic-gradient(
+      rgba(255,255,255,.34) 0deg 6deg, rgba(255,255,255,0) 6deg 18deg
+    );
+    mix-blend-mode:screen; opacity:.55;
+    animation:raysSpin 26s linear infinite;
+  }
+  @keyframes raysSpin{ to{ transform:rotate(360deg); } }
+
+  /* 抽選盤の外周に並ぶ電球 */
+  .bulb-ring{ position:absolute; inset:0; z-index:2; pointer-events:none; }
+  .bulb{
+    position:absolute; left:50%; top:50%;
+    width:clamp(7px,1.5vw,13px); height:clamp(7px,1.5vw,13px); border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #fffbe8, #ffd25c 60%, #b57900);
+    box-shadow:0 0 7px 2px rgba(255,214,92,.9), 0 1px 2px rgba(0,0,0,.5);
+    animation:bulbChase 1.5s linear infinite;
+  }
+  @keyframes bulbChase{
+    0%,72%,100%{ filter:brightness(.55); }
+    82%{ filter:brightness(2.1); }
+  }
+
+  .big-hand-frame{ position:relative; z-index:3; width:80%; height:80%; }
   .player-hand{
     position:absolute; inset:0; border-radius:50%;
-    background:radial-gradient(circle at 50% 45%, #ff5b5b 0%, var(--red-deep) 55%, #4a0004 100%);
+    background:radial-gradient(circle at 50% 42%, #ff5b5b 0%, var(--red-deep) 55%, #3d0003 100%);
     border:4px solid #ffdede;
     display:flex; align-items:center; justify-content:center;
-    font-size:min(34vh,28vw);
-    box-shadow:0 0 26px 7px rgba(226,36,44,.75), inset 0 0 14px rgba(0,0,0,.5);
-    filter:drop-shadow(0 0 6px #fff);
+    box-shadow:0 0 30px 8px rgba(226,36,44,.8), inset 0 0 22px rgba(0,0,0,.6);
+    overflow:hidden;
   }
+  /* 手のSVG（自作の電球ドット風グラフィック） */
+  .player-hand svg{ width:74%; height:74%; display:block; }
+  .hand-outline{
+    fill:none; stroke:#fff; stroke-width:7;
+    stroke-linecap:round; stroke-linejoin:round;
+    filter:drop-shadow(0 0 6px #fff) drop-shadow(0 0 14px rgba(255,180,180,.85));
+    stroke-dasharray:2 11;
+  }
+  .hand-fill{ fill:rgba(255,255,255,.10); }
+
+  /* 待機中のアイドル演出 */
+  .wheel-ring{ animation:wheelIdle 30s linear infinite; }
+  @keyframes wheelIdle{ to{ transform:rotate(360deg); } }
+  .lantern{ animation:lanternSway 3.4s ease-in-out infinite; transform-origin:top center; }
+  .lantern:nth-child(2n){ animation-delay:.5s; }
+  .lantern:nth-child(3n){ animation-delay:1.1s; }
+  @keyframes lanternSway{
+    0%,100%{ transform:rotate(-3.5deg); }
+    50%{ transform:rotate(3.5deg); }
+  }
+
   .dot-ring-dot{
     position:absolute; width:clamp(4px,1vw,8px); height:clamp(4px,1vw,8px);
     left:50%; top:50%; border-radius:50%;
@@ -256,13 +301,17 @@
 
   .result-banner{
     font-size:clamp(15px,2.8vw,26px); text-align:center; color:var(--red); font-weight:700;
-    line-height:1.35; min-height:1.4em;
+    line-height:1.35; min-height:1.4em; width:100%;
   }
   .result-banner.stamp{
     background:#fff; border:5px solid var(--red); border-radius:14px;
-    padding:8px 14px; transform:rotate(-4deg); width:100%;
+    padding:9px 10px; transform:rotate(-4deg); width:100%;
     box-shadow:0 6px 0 rgba(0,0,0,.22), 0 0 16px rgba(226,36,44,.4);
     animation:stampIn .32s cubic-bezier(.34,1.56,.64,1);
+    /* 常に1行に収める */
+    white-space:nowrap; overflow:hidden;
+    font-size:clamp(11px,1.9vw,20px);
+    letter-spacing:.02em;
   }
   @keyframes stampIn{
     0%{ transform:rotate(-4deg) scale(.3); opacity:0; }
@@ -329,6 +378,66 @@
   }
   @keyframes twinkle{ 0%,100%{opacity:.18; transform:scale(.5);} 50%{opacity:1; transform:scale(1.3);} }
 
+  /* 画面全体のフラッシュ */
+  .flash-overlay{
+    position:absolute; inset:0; pointer-events:none; z-index:900;
+    opacity:0;
+  }
+  .flash-overlay.win{ animation:flashWin .7s ease-out; }
+  .flash-overlay.lose{ animation:flashLose .7s ease-out; }
+  @keyframes flashWin{
+    0%{ opacity:0; background:radial-gradient(circle,#fff8d0,#ffbe2e); }
+    18%{ opacity:.9; background:radial-gradient(circle,#fff8d0,#ffbe2e); }
+    100%{ opacity:0; background:radial-gradient(circle,#fff8d0,#ffbe2e); }
+  }
+  @keyframes flashLose{
+    0%{ opacity:0; background:radial-gradient(circle,#e8fbff,#5ec8f0); }
+    18%{ opacity:.85; background:radial-gradient(circle,#e8fbff,#5ec8f0); }
+    100%{ opacity:0; background:radial-gradient(circle,#e8fbff,#5ec8f0); }
+  }
+
+  /* 勝ち：手のまわりに広がる光の輪 */
+  .halo{
+    position:absolute; left:50%; top:50%; z-index:7;
+    width:30%; height:30%; margin:-15% 0 0 -15%;
+    border-radius:50%; border:6px solid var(--gold);
+    pointer-events:none; opacity:0;
+  }
+  .halo.go{ animation:haloOut .95s ease-out; }
+  @keyframes haloOut{
+    0%{ transform:scale(.5); opacity:1; }
+    100%{ transform:scale(4.2); opacity:0; }
+  }
+
+  /* 負け：下から舞い上がる応援シンボル */
+  .rise{
+    position:fixed; bottom:-50px; z-index:1000; pointer-events:none;
+    animation:riseUp linear forwards;
+  }
+  @keyframes riseUp{
+    0%{ transform:translateY(0) rotate(0deg); opacity:1; }
+    100%{ transform:translateY(-105vh) rotate(200deg); opacity:.1; }
+  }
+
+  /* 勝ちスタンプはバウンドしながら登場 */
+  .result-banner.stamp.win-stamp{ animation:stampBounce .6s cubic-bezier(.28,1.6,.5,1); }
+  @keyframes stampBounce{
+    0%{ transform:rotate(-4deg) scale(.2); opacity:0; }
+    55%{ transform:rotate(-4deg) scale(1.22); opacity:1; }
+    75%{ transform:rotate(-4deg) scale(.94); }
+    100%{ transform:rotate(-4deg) scale(1); }
+  }
+  /* 負けスタンプは力強く登場 */
+  .result-banner.stamp.lose-stamp{
+    border-color:var(--blueacc); color:var(--blueacc);
+    animation:stampPush .5s cubic-bezier(.2,1.4,.4,1);
+  }
+  @keyframes stampPush{
+    0%{ transform:rotate(3deg) scale(1.7); opacity:0; }
+    60%{ transform:rotate(3deg) scale(.95); opacity:1; }
+    100%{ transform:rotate(3deg) scale(1); }
+  }
+
   .confetti{ position:fixed; top:-40px; font-size:24px; z-index:1000; pointer-events:none; animation:fall linear forwards; }
   @keyframes fall{ to{ transform:translateY(110vh) rotate(360deg); opacity:.2; } }
 
@@ -349,6 +458,7 @@
 <div class="cabinet">
   <div class="screen-panel">
     <div class="sparkle-overlay" id="sparkleOverlay"></div>
+    <div class="flash-overlay" id="flashOverlay"></div>
     <div class="bg-deco torii">⛩️</div>
     <div class="bg-deco fire">🎆</div>
 
@@ -410,9 +520,12 @@
       <button class="back-btn" data-go="top">← トップに もどる</button>
       <div class="janken-left">
         <div class="wheel-wrap">
+          <div class="wheel-rays"></div>
           <div class="wheel-ring"></div>
+          <div class="bulb-ring" id="p_bulbs"></div>
+          <div class="halo" id="p_halo"></div>
           <div class="big-hand-frame" id="p_playerFrame">
-            <div class="player-hand" id="p_playerHand">❔</div>
+            <div class="player-hand" id="p_playerHand"></div>
           </div>
         </div>
         <div class="roulette-box" id="p_roulette">7 7 7</div>
@@ -437,9 +550,12 @@
       <button class="back-btn" data-go="top">← トップに もどる</button>
       <div class="janken-left">
         <div class="wheel-wrap">
+          <div class="wheel-rays"></div>
           <div class="wheel-ring"></div>
+          <div class="bulb-ring" id="h_bulbs"></div>
+          <div class="halo" id="h_halo"></div>
           <div class="big-hand-frame" id="h_playerFrame">
-            <div class="player-hand" id="h_playerHand">❔</div>
+            <div class="player-hand" id="h_playerHand"></div>
           </div>
         </div>
         <div class="roulette-box" id="h_roulette">7 7 7</div>
@@ -470,13 +586,28 @@ function pickVoice(){
   jaVoice = v.find(x=>x.lang==='ja-JP') || v.find(x=>x.lang && x.lang.startsWith('ja')) || null;
 }
 if ('speechSynthesis' in window){ pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
-function speak(text){
+function speak(text, opt){
   if (!('speechSynthesis' in window)) return;
   speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
   u.lang='ja-JP'; if (jaVoice) u.voice=jaVoice;
-  u.rate=0.98; u.pitch=1.3; u.volume=1;
+  u.rate = (opt && opt.rate) || 1.15;   /* すこし速く、弾んだ感じに */
+  u.pitch = (opt && opt.pitch) || 1.9;  /* 高めの声で元気いっぱいに */
+  u.volume = 1;
   speechSynthesis.speak(u);
+}
+/* 掛け声など、複数のことばを続けて元気よく言う */
+function speakSeq(parts){
+  if (!('speechSynthesis' in window)) return;
+  speechSynthesis.cancel();
+  parts.forEach(p=>{
+    const u = new SpeechSynthesisUtterance(p.text);
+    u.lang='ja-JP'; if (jaVoice) u.voice=jaVoice;
+    u.rate = p.rate || 1.2;
+    u.pitch = p.pitch || 2.0;
+    u.volume = 1;
+    speechSynthesis.speak(u);
+  });
 }
 
 /* ===== 8bit効果音 ===== */
@@ -503,6 +634,12 @@ function playCelebrate(){
   beep(2093,0.55,0.35,'sine',0.1);
 }
 function playPon(){ beep(1568,0,0.16,'square',0.25); beep(2093,0.02,0.22,'sine',0.15); }
+/* 負けたときも前向きになる、行進曲風の応援メロディ */
+function playCheer(){
+  [[784,0],[784,0.16],[880,0.32],[1047,0.48],[880,0.68],[1047,0.84],[1319,1.0]]
+    .forEach(([f,t])=>beep(f,t,0.2,'square',0.19));
+  beep(1568,1.2,0.4,'sine',0.12);
+}
 function trillTick(){ beep(Math.random()<0.5?740:950, 0, 0.045, 'sine', 0.13); }
 function playTaiko(){
   const ctx=getCtx();
@@ -535,20 +672,98 @@ const sparkleOverlay = document.getElementById('sparkleOverlay');
 function sparkleOn(){ sparkleOverlay.classList.add('active'); }
 function sparkleOff(){ sparkleOverlay.classList.remove('active'); }
 
-/* ===== 紙吹雪 ===== */
+/* ===== 手のSVG（自作の電球ドット風グラフィック） ===== */
+const HAND_SVG = {
+  rock: `<svg viewBox="0 0 100 100" aria-hidden="true">
+    <path class="hand-fill" d="M27 46c0-10 5-16 12-17 2-8 8-12 14-11 6-6 14-5 18 1 7 0 11 5 11 12v22c0 15-11 26-27 26S27 68 27 55z"/>
+    <path class="hand-outline" d="M27 46c0-10 5-16 12-17 2-8 8-12 14-11 6-6 14-5 18 1 7 0 11 5 11 12v22c0 15-11 26-27 26S27 68 27 55z"/>
+    <path class="hand-outline" d="M40 46v-9M52 44v-11M64 45v-9"/>
+  </svg>`,
+  scissors: `<svg viewBox="0 0 100 100" aria-hidden="true">
+    <path class="hand-fill" d="M40 52 30 20M56 50 60 16M40 52c-8 3-12 10-12 18 0 14 11 24 26 24s26-10 26-24c0-9-5-16-14-18z"/>
+    <path class="hand-outline" d="M40 54 29 19"/>
+    <path class="hand-outline" d="M56 52 61 15"/>
+    <path class="hand-outline" d="M40 54c-8 3-13 10-13 19 0 14 11 24 26 24s26-10 26-24c0-9-5-16-13-19"/>
+    <path class="hand-outline" d="M70 60c2-6 0-11-5-12"/>
+  </svg>`,
+  paper: `<svg viewBox="0 0 100 100" aria-hidden="true">
+    <path class="hand-fill" d="M28 56c0-16 10-26 24-26s24 10 24 26c0 16-11 28-24 28S28 72 28 56z"/>
+    <path class="hand-outline" d="M31 58V34M43 55V24M57 55V24M69 58V34"/>
+    <path class="hand-outline" d="M31 58c-4-2-8 1-7 6 2 12 12 30 28 30s26-14 27-28c1-5-3-8-7-6"/>
+    <path class="hand-outline" d="M31 58v6M43 55v9M57 55v9M69 58v6"/>
+  </svg>`
+};
+function setHand(el, hand){
+  el.innerHTML = hand ? HAND_SVG[hand] : '';
+}
+
+/* ===== 抽選盤の外周に電球を並べる ===== */
+function buildBulbs(id, count){
+  const wrap = document.getElementById(id);
+  if(!wrap) return;
+  for(let i=0;i<count;i++){
+    const angle=(360/count)*i;
+    const b=document.createElement('div');
+    b.className='bulb';
+    b.style.transform='translate(-50%,-50%) rotate('+angle+'deg) translate(calc(50% - 3px)) rotate('+(-angle)+'deg)';
+    b.style.animationDelay=(i*(1.5/count)).toFixed(2)+'s';
+    wrap.appendChild(b);
+  }
+}
+['p_bulbs','h_bulbs'].forEach(id=>buildBulbs(id,24));
+
+/* ===== 画面フラッシュ ===== */
+const flashOverlay = document.getElementById('flashOverlay');
+function screenFlash(kind){
+  flashOverlay.classList.remove('win','lose');
+  void flashOverlay.offsetWidth;
+  flashOverlay.classList.add(kind);
+  setTimeout(()=>flashOverlay.classList.remove(kind), 800);
+}
+
+/* ===== 光の輪（勝ち） ===== */
+function haloBurst(haloId){
+  const el = document.getElementById(haloId);
+  if(!el) return;
+  el.classList.remove('go');
+  void el.offsetWidth;
+  el.classList.add('go');
+  setTimeout(()=>el.classList.remove('go'), 1000);
+}
+
+/* ===== 紙吹雪（勝ち：盛大に） ===== */
 function confettiBurst(){
-  const emojis=['🎉','✨','🎊','🏮','🎏'];
+  const emojis=['🎉','✨','🎊','🏮','🎏','⭐️','🎈'];
   const rect=document.querySelector('.cabinet').getBoundingClientRect();
-  for(let i=0;i<22;i++){
+  for(let i=0;i<55;i++){
     const el=document.createElement('div');
     el.className='confetti';
     el.textContent=emojis[Math.floor(Math.random()*emojis.length)];
     el.style.left=(rect.left+Math.random()*rect.width)+'px';
-    const dur=1.6+Math.random()*1.2;
+    const dur=1.5+Math.random()*1.4;
     el.style.animationDuration=dur+'s';
-    el.style.fontSize=(18+Math.random()*16)+'px';
+    el.style.animationDelay=(Math.random()*0.4).toFixed(2)+'s';
+    el.style.fontSize=(20+Math.random()*24)+'px';
     document.body.appendChild(el);
-    setTimeout(()=>el.remove(), dur*1000+100);
+    setTimeout(()=>el.remove(), dur*1000+600);
+  }
+}
+
+/* ===== 舞い上がる応援シンボル（負け：マイナス感なし） ===== */
+function riseBurst(){
+  const emojis=['🏮','⛩️','🎏','✨','💪','🎌'];
+  const rect=document.querySelector('.cabinet').getBoundingClientRect();
+  for(let i=0;i<34;i++){
+    const el=document.createElement('div');
+    el.className='rise';
+    el.textContent=emojis[Math.floor(Math.random()*emojis.length)];
+    el.style.left=(rect.left+Math.random()*rect.width)+'px';
+    const dur=1.7+Math.random()*1.3;
+    el.style.animationDuration=dur+'s';
+    el.style.animationDelay=(Math.random()*0.5).toFixed(2)+'s';
+    el.style.fontSize=(20+Math.random()*22)+'px';
+    document.body.appendChild(el);
+    setTimeout(()=>el.remove(), dur*1000+700);
   }
 }
 
@@ -630,7 +845,7 @@ document.getElementById('speakStudyBtn').addEventListener('click',()=>{
 renderStudy();
 
 /* ===== ②③ じゃんけん ===== */
-const handEmoji={rock:'✊',scissors:'✌️',paper:'🖐️'};
+const HANDS=['rock','scissors','paper'];
 const winMap={rock:'scissors',scissors:'paper',paper:'rock'};
 function judge(mine,theirs){
   if(mine===theirs) return 'draw';
@@ -659,12 +874,11 @@ function createJankenController(opts){
     els.roulette.textContent=n()+' '+n()+' '+n();
   }
   function startHandCycle(){
-    const seq=['✊','✌️','🖐️'];
     let i=0, elapsed=0;
     function delay(e){ return e<400?210 : e<800?120 : 60; }
     function tick(){
-      currentHand=['rock','scissors','paper'][i%3];
-      els.playerHand.textContent=seq[i%seq.length];
+      currentHand=HANDS[i%3];
+      setHand(els.playerHand, currentHand);
       rouletteTick();
       i++;
       const d=delay(elapsed); elapsed+=d;
@@ -678,11 +892,11 @@ function createJankenController(opts){
     clearTimeout(handCycleTimer); clearInterval(trillTimer);
     sparkleOff();
     if(els.roulette) els.roulette.classList.remove('active');
-    els.playerHand.textContent='❔';
+    setHand(els.playerHand, null);
     els.playerHand.classList.remove('land-flash');
     els.choiceButtons.forEach(b=>b.classList.remove('picked','dimmed'));
     els.result.textContent='';
-    els.result.classList.remove('stamp');
+    els.result.classList.remove('stamp','win-stamp','lose-stamp');
     els.careMsg.classList.remove('show');
     els.careMsg.textContent='';
     els.resetBtn.classList.remove('show');
@@ -698,8 +912,8 @@ function createJankenController(opts){
     els.resetBtn.classList.remove('show');
     els.choiceButtons.forEach(b=>b.classList.remove('picked','dimmed'));
     els.result.textContent='';
-    els.result.classList.remove('stamp');
-    speak('ジャンケン！');
+    els.result.classList.remove('stamp','win-stamp','lose-stamp');
+    speakSeq([{text:'ジャン'},{text:'ケン！', rate:1.05, pitch:2.0}]);
     sparkleOn();
     if(els.roulette) els.roulette.classList.add('active');
     trillTimer=setInterval(trillTick,90);
@@ -715,7 +929,7 @@ function createJankenController(opts){
     sparkleOff();
 
     const mine=currentHand;
-    els.playerHand.textContent=handEmoji[mine];
+    setHand(els.playerHand, mine);
     els.playerHand.classList.add('land-flash');
     els.choiceButtons.forEach(b=>{
       b.classList.add(b.dataset.hand===hand ? 'picked' : 'dimmed');
@@ -727,7 +941,7 @@ function createJankenController(opts){
 
     if(result==='draw'){
       els.result.textContent='あいこで';
-      speak('あいこで');
+      speak('あいこで', {rate:1.1, pitch:2.0});
       playDraw();
       setTimeout(()=>{
         els.choiceButtons.forEach(b=>b.classList.remove('picked','dimmed'));
@@ -739,21 +953,30 @@ function createJankenController(opts){
 
     /* 表示は「あそびに きた こ」から見た結果。負けても前向きな応援にする */
     if(result==='lose'){
-      els.result.textContent='🎉 ヤッター！ きみの かち！';
+      /* 相手の子の勝ち：金色フラッシュ＋光の輪＋盛大な紙吹雪 */
+      els.result.textContent='🎉 きみの かち！';
+      els.result.classList.add('stamp','win-stamp');
+      screenFlash('win');
+      haloBurst(opts.haloId);
+      confettiBurst();
+      speakSeq([{text:'ヤッター！'},{text:'きみの かち！'}]);
+      playWin();
+      playCelebrate();
     } else {
+      /* 相手の子が負けでも、応援シンボルが舞い上がる華やかな演出にする */
       els.result.textContent='⛩️ おみこし ファイト！';
+      els.result.classList.add('stamp','lose-stamp');
+      screenFlash('lose');
+      riseBurst();
+      speakSeq([{text:'おみこし'},{text:'ファイト！'}]);
+      playCheer();
     }
-    els.result.classList.add('stamp');
-    speak(result==='lose' ? 'やったー！きみの かち！' : 'おみこし ファイト！');
-    playWin();
-    if(opts.confetti) confettiBurst();
-    playCelebrate();
 
     setTimeout(()=>{
       const msg=opts.messages[Math.floor(Math.random()*opts.messages.length)];
       els.careMsg.textContent=msg;
       els.careMsg.classList.add('show');
-      speak(msg);
+      speak(msg, {rate:1.0, pitch:1.7});
       els.resetBtn.classList.add('show');
     },900);
   }
@@ -795,16 +1018,16 @@ const honbanMessages=[
 const ctrlPractice = createJankenController({
   stageId:'practiceStage',
   playerHandId:'p_playerHand', resultId:'p_result',
-  stepStartId:'p_stepStart', rouletteId:'p_roulette',
+  stepStartId:'p_stepStart', rouletteId:'p_roulette', haloId:'p_halo',
   careMsgId:'p_careMsg', resetBtnId:'p_resetBtn',
-  messages:practiceMessages, confetti:false
+  messages:practiceMessages
 });
 const ctrlHonban = createJankenController({
   stageId:'honbanStage',
   playerHandId:'h_playerHand', resultId:'h_result',
-  stepStartId:'h_stepStart', rouletteId:'h_roulette',
+  stepStartId:'h_stepStart', rouletteId:'h_roulette', haloId:'h_halo',
   careMsgId:'h_careMsg', resetBtnId:'h_resetBtn',
-  messages:honbanMessages, confetti:true
+  messages:honbanMessages
 });
 window.resetControllers = function(){ ctrlPractice.reset(); ctrlHonban.reset(); };
 
