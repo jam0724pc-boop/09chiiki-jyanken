@@ -132,6 +132,15 @@
   .menu-btn[data-go="practice"]{ background:linear-gradient(180deg,#ffd977,#e39b00); }
   .menu-btn[data-go="honban"]{ background:linear-gradient(180deg,#ff8a8a,var(--red)); }
 
+  .bgm-btn{
+    position:absolute; top:8px; right:10px; z-index:20;
+    font-family:inherit; cursor:pointer;
+    font-size:clamp(10px,2vw,13px); padding:6px 12px;
+    background:rgba(20,20,20,.72); color:#fff; border:2px solid #fff; border-radius:14px;
+  }
+  .bgm-btn.on{ background:var(--green); border-color:#fff; }
+  .bgm-btn:active{ transform:translateY(1px); }
+
   .taiko-btn{
     position:absolute; top:8px; right:10px; z-index:20;
     width:clamp(32px,5.4vw,42px); height:clamp(32px,5.4vw,42px);
@@ -240,24 +249,16 @@
     82%{ filter:brightness(2.1); }
   }
 
-  .big-hand-frame{ position:relative; z-index:3; width:80%; height:80%; }
+  .big-hand-frame{ position:relative; z-index:3; width:84%; height:84%; }
   .player-hand{
     position:absolute; inset:0; border-radius:50%;
     background:radial-gradient(circle at 50% 42%, #ff5b5b 0%, var(--red-deep) 55%, #3d0003 100%);
     border:4px solid #ffdede;
     display:flex; align-items:center; justify-content:center;
+    font-size:min(32vh,26vw); line-height:1;
     box-shadow:0 0 30px 8px rgba(226,36,44,.8), inset 0 0 22px rgba(0,0,0,.6);
-    overflow:hidden;
+    filter:drop-shadow(0 0 6px #fff);
   }
-  /* 手のSVG（自作の電球ドット風グラフィック） */
-  .player-hand svg{ width:74%; height:74%; display:block; }
-  .hand-outline{
-    fill:none; stroke:#fff; stroke-width:7;
-    stroke-linecap:round; stroke-linejoin:round;
-    filter:drop-shadow(0 0 6px #fff) drop-shadow(0 0 14px rgba(255,180,180,.85));
-    stroke-dasharray:2 11;
-  }
-  .hand-fill{ fill:rgba(255,255,255,.10); }
 
   /* 待機中のアイドル演出 */
   .wheel-ring{ animation:wheelIdle 30s linear infinite; }
@@ -518,6 +519,7 @@
     <!-- ===== ② れんしゅう ===== -->
     <section id="practice" class="screen janken-screen">
       <button class="back-btn" data-go="top">← トップに もどる</button>
+      <button class="bgm-btn bgm-toggle">🎵 BGM オフ</button>
       <div class="janken-left">
         <div class="wheel-wrap">
           <div class="wheel-rays"></div>
@@ -548,6 +550,7 @@
     <!-- ===== ③ ほんばん ===== -->
     <section id="honban" class="screen janken-screen">
       <button class="back-btn" data-go="top">← トップに もどる</button>
+      <button class="bgm-btn bgm-toggle">🎵 BGM オフ</button>
       <div class="janken-left">
         <div class="wheel-wrap">
           <div class="wheel-rays"></div>
@@ -588,6 +591,7 @@ function pickVoice(){
 if ('speechSynthesis' in window){ pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
 function speak(text, opt){
   if (!('speechSynthesis' in window)) return;
+  if (window.bgm) bgm.duck(1600);
   speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
   u.lang='ja-JP'; if (jaVoice) u.voice=jaVoice;
@@ -599,6 +603,7 @@ function speak(text, opt){
 /* 掛け声など、複数のことばを続けて元気よく言う */
 function speakSeq(parts){
   if (!('speechSynthesis' in window)) return;
+  if (window.bgm) bgm.duck(1800);
   speechSynthesis.cancel();
   parts.forEach(p=>{
     const u = new SpeechSynthesisUtterance(p.text);
@@ -672,29 +677,10 @@ const sparkleOverlay = document.getElementById('sparkleOverlay');
 function sparkleOn(){ sparkleOverlay.classList.add('active'); }
 function sparkleOff(){ sparkleOverlay.classList.remove('active'); }
 
-/* ===== 手のSVG（自作の電球ドット風グラフィック） ===== */
-const HAND_SVG = {
-  rock: `<svg viewBox="0 0 100 100" aria-hidden="true">
-    <path class="hand-fill" d="M27 46c0-10 5-16 12-17 2-8 8-12 14-11 6-6 14-5 18 1 7 0 11 5 11 12v22c0 15-11 26-27 26S27 68 27 55z"/>
-    <path class="hand-outline" d="M27 46c0-10 5-16 12-17 2-8 8-12 14-11 6-6 14-5 18 1 7 0 11 5 11 12v22c0 15-11 26-27 26S27 68 27 55z"/>
-    <path class="hand-outline" d="M40 46v-9M52 44v-11M64 45v-9"/>
-  </svg>`,
-  scissors: `<svg viewBox="0 0 100 100" aria-hidden="true">
-    <path class="hand-fill" d="M40 52 30 20M56 50 60 16M40 52c-8 3-12 10-12 18 0 14 11 24 26 24s26-10 26-24c0-9-5-16-14-18z"/>
-    <path class="hand-outline" d="M40 54 29 19"/>
-    <path class="hand-outline" d="M56 52 61 15"/>
-    <path class="hand-outline" d="M40 54c-8 3-13 10-13 19 0 14 11 24 26 24s26-10 26-24c0-9-5-16-13-19"/>
-    <path class="hand-outline" d="M70 60c2-6 0-11-5-12"/>
-  </svg>`,
-  paper: `<svg viewBox="0 0 100 100" aria-hidden="true">
-    <path class="hand-fill" d="M28 56c0-16 10-26 24-26s24 10 24 26c0 16-11 28-24 28S28 72 28 56z"/>
-    <path class="hand-outline" d="M31 58V34M43 55V24M57 55V24M69 58V34"/>
-    <path class="hand-outline" d="M31 58c-4-2-8 1-7 6 2 12 12 30 28 30s26-14 27-28c1-5-3-8-7-6"/>
-    <path class="hand-outline" d="M31 58v6M43 55v9M57 55v9M69 58v6"/>
-  </svg>`
-};
+/* ===== じゃんけんの手（絵文字） ===== */
+const HAND_EMOJI = { rock:'✊', scissors:'✌️', paper:'🖐️' };
 function setHand(el, hand){
-  el.innerHTML = hand ? HAND_SVG[hand] : '';
+  el.textContent = hand ? HAND_EMOJI[hand] : '❔';
 }
 
 /* ===== 抽選盤の外周に電球を並べる ===== */
@@ -711,6 +697,104 @@ function buildBulbs(id, count){
   }
 }
 ['p_bulbs','h_bulbs'].forEach(id=>buildBulbs(id,24));
+
+/* ===== お祭りBGM（祭囃子風の8bitループ・コード内で生成） ===== */
+window.bgm = (function(){
+  let on = false;          /* ボタンでのオン・オフ */
+  let playing = false;     /* いま鳴らしているか */
+  let timer = null;
+  let step = 0;
+  let master = null;
+  const STEP_MS = 200;     /* 1ステップの長さ */
+
+  /* 篠笛のかわりの8bitメロディ（和の陽音階・0は休み） */
+  const melody = [
+    784,  0, 880, 988, 1047, 0, 988, 880,
+    784,  0, 659, 784,  880,  0, 784,   0,
+    1047, 0, 988, 880,  784,  0, 659, 784,
+    880,  0, 784, 659,  587,  0,   0,   0
+  ];
+  /* 太鼓のリズム（2=ドン、1=ドコ、0=休み） */
+  const drum = [
+    2,0,1,1, 2,0,1,0, 2,0,1,1, 2,1,0,1,
+    2,0,1,1, 2,0,1,0, 2,0,1,1, 2,1,1,0
+  ];
+
+  function ensureMaster(){
+    const ctx = getCtx();
+    if(!master){
+      master = ctx.createGain();
+      master.gain.value = 0.22;
+      master.connect(ctx.destination);
+    }
+    return ctx;
+  }
+  function note(freq, dur, type, g){
+    const ctx = ensureMaster();
+    const osc = ctx.createOscillator(), gain = ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, ctx.currentTime);
+    gain.gain.setValueAtTime(0, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(g, ctx.currentTime + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
+    osc.connect(gain).connect(master);
+    osc.start(); osc.stop(ctx.currentTime + dur + 0.02);
+  }
+  function taikoHit(strong){
+    const ctx = ensureMaster();
+    const osc = ctx.createOscillator(), gain = ctx.createGain();
+    osc.type = 'sine';
+    const f0 = strong ? 110 : 150;
+    osc.frequency.setValueAtTime(f0, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(f0*0.45, ctx.currentTime + 0.13);
+    gain.gain.setValueAtTime(strong ? 0.5 : 0.28, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18);
+    osc.connect(gain).connect(master);
+    osc.start(); osc.stop(ctx.currentTime + 0.2);
+  }
+  function tick(){
+    const i = step % melody.length;
+    const f = melody[i];
+    if(f) note(f, 0.19, 'square', 0.14);
+    /* 5度上を薄く重ねて、笛らしい厚みを出す */
+    if(f && i % 4 === 0) note(f*1.5, 0.16, 'triangle', 0.05);
+    const d = drum[i];
+    if(d) taikoHit(d === 2);
+    step++;
+  }
+  function startLoop(){
+    if(playing) return;
+    ensureMaster();
+    playing = true;
+    tick();
+    timer = setInterval(tick, STEP_MS);
+  }
+  function stopLoop(){
+    playing = false;
+    clearInterval(timer);
+    timer = null;
+  }
+  return {
+    isOn: ()=> on,
+    toggle(){
+      on = !on;
+      if(!on) stopLoop();
+      return on;
+    },
+    /* じゃんけん画面に入ったとき／出たとき */
+    enter(){ if(on) startLoop(); },
+    leave(){ stopLoop(); },
+    /* 掛け声や結果の音声が聞こえるよう、一時的に音量を下げる */
+    duck(ms){
+      if(!master) return;
+      const ctx = getCtx();
+      master.gain.cancelScheduledValues(ctx.currentTime);
+      master.gain.setValueAtTime(0.05, ctx.currentTime);
+      master.gain.linearRampToValueAtTime(0.22, ctx.currentTime + (ms||1400)/1000);
+    }
+  };
+})();
+const bgm = window.bgm;
 
 /* ===== 画面フラッシュ ===== */
 const flashOverlay = document.getElementById('flashOverlay');
@@ -789,9 +873,26 @@ function goTo(target){
   speechSynthesis.cancel();
   sparkleOff();
   if (window.resetControllers) window.resetControllers();
+  /* BGMはじゃんけんの2モードでだけ流す */
+  if(target==='practice' || target==='honban') bgm.enter();
+  else bgm.leave();
 }
 document.querySelectorAll('[data-go]').forEach(btn=>{
   btn.addEventListener('click',(e)=>{ e.stopPropagation(); goTo(btn.dataset.go); });
+});
+
+/* BGMのオン・オフ（初期はオフ） */
+const bgmButtons = document.querySelectorAll('.bgm-toggle');
+bgmButtons.forEach(btn=>{
+  btn.addEventListener('click',(e)=>{
+    e.stopPropagation();
+    const on = bgm.toggle();
+    bgmButtons.forEach(b=>{
+      b.classList.toggle('on', on);
+      b.textContent = on ? '🎵 BGM オン' : '🎵 BGM オフ';
+    });
+    if(on) bgm.enter();
+  });
 });
 
 /* ===== ① べんきょう ===== */
@@ -983,7 +1084,7 @@ function createJankenController(opts){
 
   screenEl.addEventListener('click',(e)=>{
     if(phase!=='idle') return;
-    if(e.target.closest('.back-btn') || e.target.closest('.hand-buttons') || e.target.closest('.reset-btn')) return;
+    if(e.target.closest('.back-btn') || e.target.closest('.bgm-btn') || e.target.closest('.hand-buttons') || e.target.closest('.reset-btn')) return;
     startRound();
   });
   els.choiceButtons.forEach(b=>{
