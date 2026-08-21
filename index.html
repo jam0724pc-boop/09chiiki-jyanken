@@ -234,6 +234,17 @@
   .bgm-btn.on{ background:var(--green); border-color:#fff; }
   .bgm-btn:active{ transform:translateY(1px); }
 
+  /* じゃんけん後のメッセージ オン/オフ */
+  .msg-btn{
+    position:absolute; top:8px; right:calc(10px + min(22vw,190px)); z-index:20;
+    font-family:inherit; cursor:pointer;
+    font-size:clamp(10px,2vw,13px); padding:6px 12px;
+    background:rgba(20,20,20,.72); color:#fff; border:2px solid #fff; border-radius:14px;
+    white-space:nowrap;
+  }
+  .msg-btn.on{ background:var(--blueacc); border-color:#fff; }
+  .msg-btn:active{ transform:translateY(1px); }
+
 
   /* ===== 各モード共通の「もどる」ボタン ===== */
   .back-btn{
@@ -874,6 +885,7 @@
     <section id="janken" class="screen janken-screen">
       <button class="back-btn" data-go="top">← トップに もどる</button>
       <button class="bgm-btn bgm-toggle on">🎵 BGM オン</button>
+      <button class="msg-btn msg-toggle on">💬 メッセージ オン</button>
       <div class="sky-lanterns" id="skyLanterns" aria-hidden="true"></div>
 
       <div class="janken-main">
@@ -1058,30 +1070,49 @@ function pickVoice(){
   jaVoice = v.find(x=>x.lang==='ja-JP') || v.find(x=>x.lang && x.lang.startsWith('ja')) || null;
 }
 if ('speechSynthesis' in window){ pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
-function speak(text, opt){
+/* ===== iOS対策：音声読み上げ中はWeb Audioの音が極端に小さくなるため、
+   読み上げと効果音が重ならないように順番待ちで管理する ===== */
+let messagesEnabled = true;   /* じゃんけん後のメッセージ読み上げのオン/オフ */
+let speechBusy = false;
+let speechQueue = [];
+function runSpeech(text, opt){
   if (!('speechSynthesis' in window)) return;
-  if (window.bgm) bgm.duck(1600);
+  speechBusy = true;
   speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
   u.lang='ja-JP'; if (jaVoice) u.voice=jaVoice;
-  u.rate = (opt && opt.rate) || 1.15;   /* すこし速く、弾んだ感じに */
-  u.pitch = (opt && opt.pitch) || 1.9;  /* 高めの声で元気いっぱいに */
+  u.rate = (opt && opt.rate) || 1.15;
+  u.pitch = (opt && opt.pitch) || 1.9;
   u.volume = 1;
+  const done = ()=>{
+    speechBusy = false;
+    /* 読み上げ後、待たせていた効果音を鳴らす */
+    const q = speechQueue; speechQueue = [];
+    q.forEach(fn=>{ try{ fn(); }catch(e){} });
+  };
+  u.onend = done;
+  u.onerror = done;
+  /* 読み上げが始まらなかった場合の保険 */
+  setTimeout(()=>{ if(speechBusy) done(); }, 4000);
   speechSynthesis.speak(u);
 }
-/* 掛け声など、複数のことばを続けて元気よく言う */
+/* 効果音は、読み上げ中なら終わってから鳴らす */
+function playSfx(fn){
+  if (speechBusy) speechQueue.push(fn);
+  else fn();
+}
+
+function speak(text, opt){
+  if (!('speechSynthesis' in window)) return;
+  if (!messagesEnabled && (opt && opt.optional)) return;   /* メッセージ読み上げのオン/オフ */
+  if (window.bgm) bgm.duck(1600);
+  runSpeech(text, opt);
+}
+/* 掛け声など、続けて元気よく言う */
 function speakSeq(parts){
   if (!('speechSynthesis' in window)) return;
   if (window.bgm) bgm.duck(1800);
-  speechSynthesis.cancel();
-  parts.forEach(p=>{
-    const u = new SpeechSynthesisUtterance(p.text);
-    u.lang='ja-JP'; if (jaVoice) u.voice=jaVoice;
-    u.rate = p.rate || 1.2;
-    u.pitch = p.pitch || 2.0;
-    u.volume = 1;
-    speechSynthesis.speak(u);
-  });
+  runSpeech(parts.map(p=>p.text).join('、'), {rate:parts[0].rate||1.2, pitch:parts[0].pitch||2.0});
 }
 
 /* ===== 8bit効果音 ===== */
@@ -1546,7 +1577,20 @@ document.querySelectorAll('[data-go]').forEach(btn=>{
   btn.addEventListener('click',(e)=>{ e.stopPropagation(); goTo(btn.dataset.go); });
 });
 
-/* BGMのオン・オフ（初期はオフ） */
+/* じゃんけん後メッセージのオン・オフ（初期はオン） */
+const msgButtons = document.querySelectorAll('.msg-toggle');
+msgButtons.forEach(btn=>{
+  btn.addEventListener('click',(e)=>{
+    e.stopPropagation();
+    messagesEnabled = !messagesEnabled;
+    msgButtons.forEach(b=>{
+      b.classList.toggle('on', messagesEnabled);
+      b.textContent = messagesEnabled ? '💬 メッセージ オン' : '💬 メッセージ オフ';
+    });
+  });
+});
+
+/* BGMのオン・オフ */
 const bgmButtons = document.querySelectorAll('.bgm-toggle');
 bgmButtons.forEach(btn=>{
   btn.addEventListener('click',(e)=>{
@@ -1693,7 +1737,7 @@ function createJankenController(opts){
     bgm.duck(1200);
     if(els.bezelSpin) els.bezelSpin.classList.add('on');
     setButtonsLit(els.choiceButtons, true);   /* ボタンを点灯 */
-    rouletteSound.start();                    /* 押されるまで鳴らし続ける */
+    playSfx(()=>rouletteSound.start());        /* 掛け声のあとに鳴らし始める */
     startHandCycle();
   }
 
@@ -1721,7 +1765,7 @@ function createJankenController(opts){
       els.result.textContent='あいこ';
       els.result.classList.add('show','draw-stamp');
       setKid('draw');
-      taikoBeat(0,0.8); taikoBeat(0.26,0.9);
+      playSfx(()=>{ taikoBeat(0,0.8); taikoBeat(0.26,0.9); });
       speak('あいこで', {rate:1.1, pitch:1.9});
       setTimeout(()=>{
         els.choiceButtons.forEach(b=>b.classList.remove('picked','dimmed'));
@@ -1751,24 +1795,26 @@ function createJankenController(opts){
     }
     /* かち・まけは祭り太鼓の連打。BGMを一時的に下げて太鼓を前に出す */
     bgm.duck(2600);
-    playDodon();
+    playSfx(playDodon);
     /* 太鼓が鳴り終わってから「かち！」「まけ！」と読み上げる */
     setTimeout(()=>{
       speak(result==='lose' ? 'かち！' : 'まけ！', {rate:1.05, pitch:2.0});
-    }, 1150);
+    }, 1500);
 
     setTimeout(()=>{
       const msg=opts.messages[Math.floor(Math.random()*opts.messages.length)];
-      els.careMsg.textContent=msg;
-      els.careMsg.classList.add('show');
-      speak(msg, {rate:1.05, pitch:1.8});
+      if(messagesEnabled){
+        els.careMsg.textContent=msg;
+        els.careMsg.classList.add('show');
+      }
+      speak(msg, {rate:1.05, pitch:1.8, optional:true});
       els.resetBtn.classList.add('show');
     },2600);
   }
 
   screenEl.addEventListener('click',(e)=>{
     if(phase!=='idle') return;
-    if(e.target.closest('.back-btn') || e.target.closest('.bgm-btn') || e.target.closest('.hand-buttons') || e.target.closest('.reset-btn')) return;
+    if(e.target.closest('.back-btn') || e.target.closest('.bgm-btn') || e.target.closest('.msg-btn') || e.target.closest('.hand-buttons') || e.target.closest('.reset-btn')) return;
     startRound();
   });
   els.choiceButtons.forEach(b=>{
