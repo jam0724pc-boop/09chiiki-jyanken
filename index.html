@@ -1070,6 +1070,69 @@ function pickVoice(){
   jaVoice = v.find(x=>x.lang==='ja-JP') || v.find(x=>x.lang && x.lang.startsWith('ja')) || null;
 }
 if ('speechSynthesis' in window){ pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
+/* ===== iPadの「消音（ミュート）」をオンにしていても音が鳴るようにする =====
+   iOSでは、Web Audioの音は消音スイッチで消されてしまう（読み上げは消えない）。
+   無音の音声ファイルを「動画・音楽」として再生し続けることで、
+   端末を音楽再生モードに切り替え、消音中でも効果音が鳴るようにする。 */
+let silentAudioEl = null;
+function buildSilentWav(){
+  const sr = 8000, n = sr;                 /* 1秒 */
+  const bytes = 44 + n*2;
+  const buf = new ArrayBuffer(bytes);
+  const v = new DataView(buf);
+  const w = (o,s)=>{ for(let i=0;i<s.length;i++) v.setUint8(o+i, s.charCodeAt(i)); };
+  w(0,'RIFF'); v.setUint32(4, bytes-8, true); w(8,'WAVE');
+  w(12,'fmt '); v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true);
+  v.setUint32(24,sr,true); v.setUint32(28,sr*2,true); v.setUint16(32,2,true); v.setUint16(34,16,true);
+  w(36,'data'); v.setUint32(40, n*2, true);
+  for(let i=0;i<n;i++) v.setInt16(44+i*2, 0, true);   /* 無音 */
+  let bin=''; const u8=new Uint8Array(buf);
+  for(let i=0;i<u8.length;i++) bin += String.fromCharCode(u8[i]);
+  return 'data:audio/wav;base64,' + btoa(bin);
+}
+function enableSoundOnMute(){
+  if(silentAudioEl) { silentAudioEl.play().catch(()=>{}); return; }
+  const a = document.createElement('audio');
+  a.src = buildSilentWav();
+  a.loop = true;
+  a.volume = 0.02;
+  a.setAttribute('playsinline','');
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  silentAudioEl = a;
+  a.play().catch(()=>{});
+}
+
+/* 効果音とBGMを「音楽」として出力する経路。
+   iPadの消音（ミュート）がオンでも、この経路なら音が鳴る。 */
+let mediaOutNode = null;
+let mediaAudioEl = null;
+function getMediaOut(){
+  const ctx = getCtx();
+  if(mediaOutNode) return mediaOutNode;
+  try{
+    if(typeof ctx.createMediaStreamDestination !== 'function') return null;
+    const dest = ctx.createMediaStreamDestination();
+    const a = document.createElement('audio');
+    a.setAttribute('playsinline','');
+    a.autoplay = true;
+    a.style.display = 'none';
+    a.srcObject = dest.stream;
+    document.body.appendChild(a);
+    a.play().catch(()=>{});
+    mediaAudioEl = a;
+    mediaOutNode = dest;
+    return mediaOutNode;
+  }catch(e){
+    return null;
+  }
+}
+/* 音の最終的な出口。音楽経路が使えればそちら、だめなら通常出力 */
+function audioOut(){
+  const m = getMediaOut();
+  return m ? m : getCtx().destination;
+}
+
 /* ===== iOS対策：音声読み上げ中はWeb Audioの音が極端に小さくなるため、
    読み上げと効果音が重ならないように順番待ちで管理する ===== */
 let messagesEnabled = true;   /* じゃんけん後のメッセージ読み上げのオン/オフ */
@@ -1128,14 +1191,14 @@ function getSfx(){
   const ctx = getCtx();
   if(!sfxOut){
     const comp = ctx.createDynamicsCompressor();
-    comp.threshold.setValueAtTime(-8, ctx.currentTime);
+    comp.threshold.setValueAtTime(-12, ctx.currentTime);
     comp.knee.setValueAtTime(22, ctx.currentTime);
-    comp.ratio.setValueAtTime(6, ctx.currentTime);
+    comp.ratio.setValueAtTime(8, ctx.currentTime);
     comp.attack.setValueAtTime(0.003, ctx.currentTime);
     comp.release.setValueAtTime(0.22, ctx.currentTime);
     sfxOut = ctx.createGain();
-    sfxOut.gain.value = 1.6;
-    sfxOut.connect(comp).connect(ctx.destination);
+    sfxOut.gain.value = 1.0;
+    sfxOut.connect(comp).connect(audioOut());
   }
   return sfxOut;
 }
@@ -1155,7 +1218,7 @@ function playCelebrate(){
   [523,659,784,1047,1319].forEach((f,i)=>beep(f,i*0.09,0.2,'square',0.18));
   beep(2093,0.55,0.35,'sine',0.1);
 }
-function playPon(){ beep(1568,0,0.16,'square',0.25); beep(2093,0.02,0.22,'sine',0.15); }
+function playPon(){ beep(1568,0,0.16,'square',0.16); beep(2093,0.02,0.22,'sine',0.10); }
 /* 結果発表の「どどん！」（大太鼓を2回） */
 /* 太鼓を1発鳴らす（vol は 0〜1 の目安）
    ※iPadの内蔵スピーカーは低音がほとんど出ないため、
@@ -1175,7 +1238,7 @@ function taikoBeat(t, vol){
   const bp=ctx.createBiquadFilter();
   bp.type='bandpass'; bp.frequency.setValueAtTime(1700, ctx.currentTime+t); bp.Q.value=0.8;
   const ng=ctx.createGain();
-  ng.gain.setValueAtTime(vol*0.85, ctx.currentTime+t);
+  ng.gain.setValueAtTime(vol*0.62, ctx.currentTime+t);
   ng.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+t+0.13);
   src.connect(bp).connect(ng).connect(getSfx());
   src.start(ctx.currentTime+t);
@@ -1185,7 +1248,7 @@ function taikoBeat(t, vol){
   body.type='triangle';
   body.frequency.setValueAtTime(900, ctx.currentTime+t);
   body.frequency.exponentialRampToValueAtTime(420, ctx.currentTime+t+0.16);
-  bg.gain.setValueAtTime(vol*0.5, ctx.currentTime+t);
+  bg.gain.setValueAtTime(vol*0.52, ctx.currentTime+t);
   bg.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+t+0.3);
   body.connect(bg).connect(getSfx());
   body.start(ctx.currentTime+t); body.stop(ctx.currentTime+t+0.32);
@@ -1195,7 +1258,7 @@ function taikoBeat(t, vol){
   mid.type='sine';
   mid.frequency.setValueAtTime(600, ctx.currentTime+t);
   mid.frequency.exponentialRampToValueAtTime(300, ctx.currentTime+t+0.22);
-  mg.gain.setValueAtTime(vol*0.42, ctx.currentTime+t);
+  mg.gain.setValueAtTime(vol*0.40, ctx.currentTime+t);
   mg.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+t+0.38);
   mid.connect(mg).connect(getSfx());
   mid.start(ctx.currentTime+t); mid.stop(ctx.currentTime+t+0.4);
@@ -1205,7 +1268,7 @@ function taikoBeat(t, vol){
   low.type='sine';
   low.frequency.setValueAtTime(220, ctx.currentTime+t);
   low.frequency.exponentialRampToValueAtTime(95, ctx.currentTime+t+0.2);
-  lg.gain.setValueAtTime(vol*0.45, ctx.currentTime+t);
+  lg.gain.setValueAtTime(vol*0.42, ctx.currentTime+t);
   lg.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+t+0.4);
   low.connect(lg).connect(getSfx());
   low.start(ctx.currentTime+t); low.stop(ctx.currentTime+t+0.42);
@@ -1298,8 +1361,8 @@ window.bgm = (function(){
     const ctx = getCtx();
     if(!master){
       master = ctx.createGain();
-      master.gain.value = 0.22;
-      master.connect(ctx.destination);
+      master.gain.value = 0.15;
+      master.connect(audioOut());
     }
     return ctx;
   }
@@ -1325,7 +1388,7 @@ window.bgm = (function(){
     const bp=ctx.createBiquadFilter();
     bp.type='bandpass'; bp.frequency.setValueAtTime(1600, ctx.currentTime); bp.Q.value=0.9;
     const ng=ctx.createGain();
-    ng.gain.setValueAtTime(strong ? 0.55 : 0.3, ctx.currentTime);
+    ng.gain.setValueAtTime(strong ? 0.38 : 0.2, ctx.currentTime);
     ng.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
     src.connect(bp).connect(ng).connect(master);
     src.start();
@@ -1336,7 +1399,7 @@ window.bgm = (function(){
     const f0 = strong ? 820 : 980;
     body.frequency.setValueAtTime(f0, ctx.currentTime);
     body.frequency.exponentialRampToValueAtTime(f0*0.45, ctx.currentTime + 0.12);
-    bg.gain.setValueAtTime(strong ? 0.34 : 0.2, ctx.currentTime);
+    bg.gain.setValueAtTime(strong ? 0.28 : 0.16, ctx.currentTime);
     bg.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
     body.connect(bg).connect(master);
     body.start(); body.stop(ctx.currentTime + 0.22);
@@ -1346,7 +1409,7 @@ window.bgm = (function(){
     low.type = 'sine';
     low.frequency.setValueAtTime(strong ? 200 : 260, ctx.currentTime);
     low.frequency.exponentialRampToValueAtTime(90, ctx.currentTime + 0.13);
-    lg.gain.setValueAtTime(strong ? 0.4 : 0.22, ctx.currentTime);
+    lg.gain.setValueAtTime(strong ? 0.32 : 0.18, ctx.currentTime);
     lg.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
     low.connect(lg).connect(master);
     low.start(); low.stop(ctx.currentTime + 0.22);
@@ -1354,9 +1417,9 @@ window.bgm = (function(){
   function tick(){
     const i = step % melody.length;
     const f = melody[i];
-    if(f) note(f, 0.19, 'square', 0.14);
+    if(f) note(f, 0.19, 'square', 0.11);
     /* 5度上を薄く重ねて、笛らしい厚みを出す */
-    if(f) note(f*0.5, 0.17, 'triangle', 0.07);
+    if(f) note(f*0.5, 0.17, 'triangle', 0.06);
     const d = drum[i];
     if(d) taikoHit(d === 2);
     step++;
@@ -1369,14 +1432,14 @@ window.bgm = (function(){
       ctx.resume().then(()=>{
         if(!on || playing) return;
         playing = true;
-        master.gain.setValueAtTime(0.22, ctx.currentTime);
+        master.gain.setValueAtTime(0.15, ctx.currentTime);
         tick();
         timer = setInterval(tick, STEP_MS);
       });
       return;
     }
     playing = true;
-    master.gain.setValueAtTime(0.22, ctx.currentTime);
+    master.gain.setValueAtTime(0.15, ctx.currentTime);
     tick();
     timer = setInterval(tick, STEP_MS);
   }
@@ -1400,8 +1463,8 @@ window.bgm = (function(){
       if(!master) return;
       const ctx = getCtx();
       master.gain.cancelScheduledValues(ctx.currentTime);
-      master.gain.setValueAtTime(0.05, ctx.currentTime);
-      master.gain.linearRampToValueAtTime(0.22, ctx.currentTime + (ms||1400)/1000);
+      master.gain.setValueAtTime(0.03, ctx.currentTime);
+      master.gain.linearRampToValueAtTime(0.15, ctx.currentTime + (ms||1400)/1000);
     }
   };
 })();
@@ -1463,7 +1526,7 @@ const rouletteSound = (function(){
       osc.type='square';
       osc.frequency.setValueAtTime(seq[0], ctx.currentTime);
       gain.gain.setValueAtTime(0, ctx.currentTime);
-      gain.gain.linearRampToValueAtTime(0.42, ctx.currentTime+0.03);
+      gain.gain.linearRampToValueAtTime(0.22, ctx.currentTime+0.03);
       osc.connect(gain).connect(getSfx());
       osc.start();
       step=0;
@@ -1473,8 +1536,8 @@ const rouletteSound = (function(){
         const c=getCtx();
         step++;
         osc.frequency.setValueAtTime(seq[step%seq.length], c.currentTime);
-        gain.gain.setValueAtTime(0.42, c.currentTime);
-        gain.gain.linearRampToValueAtTime(0.22, c.currentTime+0.05);
+        gain.gain.setValueAtTime(0.22, c.currentTime);
+        gain.gain.linearRampToValueAtTime(0.13, c.currentTime+0.05);
       }, 80);
     },
     stop(){
@@ -1853,6 +1916,8 @@ window.resetControllers = function(){ ctrlJanken.reset(); };
 function unlockAudio(){
   const ctx = getCtx();
   if(ctx.state === 'suspended') ctx.resume();
+  /* 消音（ミュート）中でも音が鳴るようにする */
+  enableSoundOnMute();
   /* 無音を1回鳴らして、確実に解除する */
   try{
     const buf = ctx.createBuffer(1, 1, 22050);
