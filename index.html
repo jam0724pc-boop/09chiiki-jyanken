@@ -1126,40 +1126,58 @@ function playCelebrate(){
 }
 function playPon(){ beep(1568,0,0.16,'square',0.25); beep(2093,0.02,0.22,'sine',0.15); }
 /* 結果発表の「どどん！」（大太鼓を2回） */
-/* 太鼓を1発鳴らす（vol は 0〜1 の目安） */
+/* 太鼓を1発鳴らす（vol は 0〜1 の目安）
+   ※iPadの内蔵スピーカーは低音がほとんど出ないため、
+     低い胴の響きだけでなく、中高音の「叩いた音」を厚めに重ねている */
 function taikoBeat(t, vol){
   const ctx=getCtx();
-  /* 胴の響き */
-  const osc=ctx.createOscillator(), gain=ctx.createGain();
-  osc.type='sine';
-  osc.frequency.setValueAtTime(240, ctx.currentTime+t);
-  osc.frequency.exponentialRampToValueAtTime(100, ctx.currentTime+t+0.2);
-  gain.gain.setValueAtTime(vol*0.78, ctx.currentTime+t);
-  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+t+0.4);
-  osc.connect(gain).connect(getSfx());
-  osc.start(ctx.currentTime+t); osc.stop(ctx.currentTime+t+0.42);
 
-  /* 中音域の胴鳴り（小型スピーカーで輪郭を出す） */
-  const mid=ctx.createOscillator(), mg=ctx.createGain();
-  mid.type='triangle';
-  mid.frequency.setValueAtTime(430, ctx.currentTime+t);
-  mid.frequency.exponentialRampToValueAtTime(190, ctx.currentTime+t+0.16);
-  mg.gain.setValueAtTime(vol*0.38, ctx.currentTime+t);
-  mg.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+t+0.26);
-  mid.connect(mg).connect(getSfx());
-  mid.start(ctx.currentTime+t); mid.stop(ctx.currentTime+t+0.28);
-
-  /* 打面を叩いた当たり */
-  const len=Math.floor(ctx.sampleRate*0.05);
+  /* ① 打面のアタック（1〜4kHz中心のノイズ）＝スピーカーで最も聞こえる部分 */
+  const len=Math.floor(ctx.sampleRate*0.09);
   const buf=ctx.createBuffer(1,len,ctx.sampleRate);
   const d=buf.getChannelData(0);
-  for(let i=0;i<len;i++) d[i]=(Math.random()*2-1)*(1-i/len);
+  for(let i=0;i<len;i++){
+    const decay=Math.pow(1-i/len, 2.2);
+    d[i]=(Math.random()*2-1)*decay;
+  }
   const src=ctx.createBufferSource(); src.buffer=buf;
+  const bp=ctx.createBiquadFilter();
+  bp.type='bandpass'; bp.frequency.setValueAtTime(1700, ctx.currentTime+t); bp.Q.value=0.8;
   const ng=ctx.createGain();
-  ng.gain.setValueAtTime(vol*0.30, ctx.currentTime+t);
-  ng.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+t+0.06);
-  src.connect(ng).connect(getSfx());
+  ng.gain.setValueAtTime(vol*0.85, ctx.currentTime+t);
+  ng.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+t+0.13);
+  src.connect(bp).connect(ng).connect(getSfx());
   src.start(ctx.currentTime+t);
+
+  /* ② 胴鳴りの芯（900Hz→420Hz）＝スピーカーでも十分鳴る帯域 */
+  const body=ctx.createOscillator(), bg=ctx.createGain();
+  body.type='triangle';
+  body.frequency.setValueAtTime(900, ctx.currentTime+t);
+  body.frequency.exponentialRampToValueAtTime(420, ctx.currentTime+t+0.16);
+  bg.gain.setValueAtTime(vol*0.5, ctx.currentTime+t);
+  bg.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+t+0.3);
+  body.connect(bg).connect(getSfx());
+  body.start(ctx.currentTime+t); body.stop(ctx.currentTime+t+0.32);
+
+  /* ③ 中音の余韻（600Hz→300Hz）＝太鼓らしさを出す */
+  const mid=ctx.createOscillator(), mg=ctx.createGain();
+  mid.type='sine';
+  mid.frequency.setValueAtTime(600, ctx.currentTime+t);
+  mid.frequency.exponentialRampToValueAtTime(300, ctx.currentTime+t+0.22);
+  mg.gain.setValueAtTime(vol*0.42, ctx.currentTime+t);
+  mg.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+t+0.38);
+  mid.connect(mg).connect(getSfx());
+  mid.start(ctx.currentTime+t); mid.stop(ctx.currentTime+t+0.4);
+
+  /* ④ 低い胴の響き（イヤホン用。スピーカーでは聞こえないが厚みになる） */
+  const low=ctx.createOscillator(), lg=ctx.createGain();
+  low.type='sine';
+  low.frequency.setValueAtTime(220, ctx.currentTime+t);
+  low.frequency.exponentialRampToValueAtTime(95, ctx.currentTime+t+0.2);
+  lg.gain.setValueAtTime(vol*0.45, ctx.currentTime+t);
+  lg.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+t+0.4);
+  low.connect(lg).connect(getSfx());
+  low.start(ctx.currentTime+t); low.stop(ctx.currentTime+t+0.42);
 }
 /* 結果発表の祭り太鼓「ドン・ドン・ドドン！」 */
 function playDodon(){
@@ -1232,11 +1250,12 @@ window.bgm = (function(){
   const STEP_MS = 200;     /* 1ステップの長さ */
 
   /* 篠笛のかわりの8bitメロディ（和の陽音階・0は休み） */
+  /* iPadのスピーカーで確実に聞こえるよう、高めの音域で組んでいる */
   const melody = [
-    784,  0, 880, 988, 1047, 0, 988, 880,
-    784,  0, 659, 784,  880,  0, 784,   0,
-    1047, 0, 988, 880,  784,  0, 659, 784,
-    880,  0, 784, 659,  587,  0,   0,   0
+    1568, 0, 1760, 1976, 2093, 0, 1976, 1760,
+    1568, 0, 1319, 1568, 1760,  0, 1568,    0,
+    2093, 0, 1976, 1760, 1568,  0, 1319, 1568,
+    1760, 0, 1568, 1319, 1175,  0,    0,    0
   ];
   /* 太鼓のリズム（2=ドン、1=ドコ、0=休み） */
   const drum = [
@@ -1266,30 +1285,47 @@ window.bgm = (function(){
   }
   function taikoHit(strong){
     const ctx = ensureMaster();
-    const f0 = strong ? 210 : 280;
-    const osc = ctx.createOscillator(), gain = ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(f0, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(f0*0.45, ctx.currentTime + 0.13);
-    gain.gain.setValueAtTime(strong ? 0.62 : 0.34, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
-    osc.connect(gain).connect(master);
-    osc.start(); osc.stop(ctx.currentTime + 0.22);
-    /* 打面の当たりを足して、小型スピーカーでも輪郭を出す */
-    const mid = ctx.createOscillator(), mg = ctx.createGain();
-    mid.type = 'triangle';
-    mid.frequency.setValueAtTime(strong ? 460 : 600, ctx.currentTime);
-    mg.gain.setValueAtTime(strong ? 0.22 : 0.13, ctx.currentTime);
-    mg.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
-    mid.connect(mg).connect(master);
-    mid.start(); mid.stop(ctx.currentTime + 0.1);
+    /* 打面のアタック（高音）＝スピーカーで聞こえる主役 */
+    const len=Math.floor(ctx.sampleRate*0.06);
+    const buf=ctx.createBuffer(1,len,ctx.sampleRate);
+    const d=buf.getChannelData(0);
+    for(let i=0;i<len;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/len,2.2);
+    const src=ctx.createBufferSource(); src.buffer=buf;
+    const bp=ctx.createBiquadFilter();
+    bp.type='bandpass'; bp.frequency.setValueAtTime(1600, ctx.currentTime); bp.Q.value=0.9;
+    const ng=ctx.createGain();
+    ng.gain.setValueAtTime(strong ? 0.55 : 0.3, ctx.currentTime);
+    ng.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+    src.connect(bp).connect(ng).connect(master);
+    src.start();
+
+    /* 胴鳴りの芯（中音域） */
+    const body = ctx.createOscillator(), bg = ctx.createGain();
+    body.type = 'triangle';
+    const f0 = strong ? 820 : 980;
+    body.frequency.setValueAtTime(f0, ctx.currentTime);
+    body.frequency.exponentialRampToValueAtTime(f0*0.45, ctx.currentTime + 0.12);
+    bg.gain.setValueAtTime(strong ? 0.34 : 0.2, ctx.currentTime);
+    bg.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+    body.connect(bg).connect(master);
+    body.start(); body.stop(ctx.currentTime + 0.22);
+
+    /* 低い響き（イヤホン用の厚み） */
+    const low = ctx.createOscillator(), lg = ctx.createGain();
+    low.type = 'sine';
+    low.frequency.setValueAtTime(strong ? 200 : 260, ctx.currentTime);
+    low.frequency.exponentialRampToValueAtTime(90, ctx.currentTime + 0.13);
+    lg.gain.setValueAtTime(strong ? 0.4 : 0.22, ctx.currentTime);
+    lg.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+    low.connect(lg).connect(master);
+    low.start(); low.stop(ctx.currentTime + 0.22);
   }
   function tick(){
     const i = step % melody.length;
     const f = melody[i];
     if(f) note(f, 0.19, 'square', 0.14);
     /* 5度上を薄く重ねて、笛らしい厚みを出す */
-    if(f && i % 4 === 0) note(f*1.5, 0.16, 'triangle', 0.05);
+    if(f) note(f*0.5, 0.17, 'triangle', 0.07);
     const d = drum[i];
     if(d) taikoHit(d === 2);
     step++;
