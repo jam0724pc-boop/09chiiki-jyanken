@@ -520,40 +520,23 @@
     font-size:min(13vh,74px); color:#fff; cursor:pointer; border:5px solid #111;
     box-shadow:0 7px 0 #0a0a0a, inset 0 -5px 9px rgba(0,0,0,.22), inset 0 5px 9px rgba(255,255,255,.55);
   }
-  /* 待機中は消灯（暗く・色を抜く）。じゃんけんが始まったらパッと点灯する */
-  .hand-buttons button{
-    background:radial-gradient(circle at 35% 25%,#3d4147,#25282c 60%,#15171a);
-    filter:grayscale(1) brightness(.45);
-    opacity:.55;
-    box-shadow:0 7px 0 #0a0a0a, inset 0 6px 12px rgba(0,0,0,.7);
-    transition:background .2s, filter .2s, opacity .2s, box-shadow .2s;
-  }
-  .hand-buttons.live button{
-    filter:none; opacity:1;
-    box-shadow:0 7px 0 #0a0a0a, inset 0 -5px 9px rgba(0,0,0,.22),
-               inset 0 5px 9px rgba(255,255,255,.55), 0 0 18px 4px rgba(255,255,255,.35);
-    animation:btnLightUp .45s ease-out;
-  }
   @keyframes btnLightUp{
-    0%{ filter:brightness(2.6); transform:scale(1.1); }
-    100%{ filter:none; transform:scale(1); }
+    0%{ transform:scale(1.14); }
+    100%{ transform:scale(1); }
   }
-  .hand-buttons.live button[data-hand="rock"]{ background:radial-gradient(circle at 35% 25%,#ffb3b3,#e8202c 58%,#a3101a); }
-  .hand-buttons.live button[data-hand="scissors"]{ background:radial-gradient(circle at 35% 25%,#fff6c2,#ffc518 58%,#c08800); }
-  .hand-buttons.live button[data-hand="paper"]{ background:radial-gradient(circle at 35% 25%,#bfe4ff,#2f80d8 58%,#154a86); }
   .hand-buttons button:active{
     transform:translateY(5px);
     box-shadow:0 2px 0 #0a0a0a, inset 0 -4px 8px rgba(0,0,0,.3), inset 0 3px 6px rgba(255,255,255,.35);
   }
   .hand-buttons button.picked{
-    animation:pickedPulse 1.6s ease-out forwards;
+    animation:pickedPulse 1.6s ease-out forwards !important;
     outline:5px solid #fff; outline-offset:3px; z-index:5;
   }
   @keyframes pickedPulse{
     0%{ transform:scale(1.26); box-shadow:0 0 40px 18px rgba(255,255,255,.9); filter:brightness(2.2); }
     100%{ transform:scale(1.1); box-shadow:0 7px 0 #0a0a0a, 0 0 22px 8px rgba(255,255,255,.55); filter:brightness(1.25); }
   }
-  .hand-buttons button.dimmed{ opacity:.3; filter:grayscale(.6); transition:opacity .2s,filter .2s; }
+  .hand-buttons button.dimmed{ opacity:.3 !important; filter:grayscale(.6) !important; transition:opacity .2s,filter .2s; }
 
   /* 画面下：メッセージを横1行で */
   .care-msg{
@@ -939,15 +922,6 @@ function playCheer(){
     .forEach(([f,t])=>beep(f,t,0.2,'square',0.19));
   beep(1568,1.2,0.4,'sine',0.12);
 }
-/* ルーレットが回り続ける「トゥルルル…」の連続音 */
-let trillStep = 0;
-function trillTick(){
-  const seq = [784, 988, 1175, 1319, 1175, 988];
-  const f = seq[trillStep % seq.length];
-  trillStep++;
-  beep(f, 0, 0.07, 'square', 0.26);
-  beep(f*1.5, 0, 0.05, 'triangle', 0.12);
-}
 function playTaiko(){
   const ctx=getCtx();
   [0,0.18,0.36].forEach(t=>{
@@ -1117,6 +1091,74 @@ window.bgm = (function(){
 })();
 const bgm = window.bgm;
 
+/* ===== じゃんけんボタンの消灯／点灯（JSで直接指定して確実に効かせる） ===== */
+const BTN_COLOR = {
+  rock:     'radial-gradient(circle at 35% 25%,#ffb3b3,#e8202c 58%,#a3101a)',
+  scissors: 'radial-gradient(circle at 35% 25%,#fff6c2,#ffc518 58%,#c08800)',
+  paper:    'radial-gradient(circle at 35% 25%,#bfe4ff,#2f80d8 58%,#154a86)'
+};
+const BTN_OFF = 'radial-gradient(circle at 35% 25%,#3a3e44,#23262a 60%,#131518)';
+
+function setButtonsLit(buttons, lit){
+  buttons.forEach(b=>{
+    if(lit){
+      b.style.background = BTN_COLOR[b.dataset.hand];
+      b.style.filter = 'none';
+      b.style.opacity = '1';
+      b.style.boxShadow = '0 7px 0 #0a0a0a, inset 0 -5px 9px rgba(0,0,0,.22), inset 0 5px 9px rgba(255,255,255,.55), 0 0 20px 5px rgba(255,255,255,.4)';
+      b.style.animation = 'btnLightUp .4s ease-out';
+    } else {
+      b.style.background = BTN_OFF;
+      b.style.filter = 'grayscale(1) brightness(.4)';
+      b.style.opacity = '.5';
+      b.style.boxShadow = '0 7px 0 #0a0a0a, inset 0 6px 14px rgba(0,0,0,.75)';
+      b.style.animation = 'none';
+    }
+  });
+}
+
+/* ===== ルーレットの効果音（押されるまで途切れず鳴り続ける） ===== */
+const rouletteSound = (function(){
+  let osc=null, gain=null, timer=null, step=0;
+  const seq=[784, 988, 1175, 1319, 1175, 988];
+  return {
+    start(){
+      if(osc) return;
+      const ctx=getCtx();
+      osc=ctx.createOscillator();
+      gain=ctx.createGain();
+      osc.type='square';
+      osc.frequency.setValueAtTime(seq[0], ctx.currentTime);
+      gain.gain.setValueAtTime(0, ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.20, ctx.currentTime+0.03);
+      osc.connect(gain).connect(getSfx());
+      osc.start();
+      step=0;
+      /* 音程を細かく変えて「トゥルルル…」と回っている感じを出す */
+      timer=setInterval(()=>{
+        if(!osc) return;
+        const c=getCtx();
+        step++;
+        osc.frequency.setValueAtTime(seq[step%seq.length], c.currentTime);
+        gain.gain.setValueAtTime(0.20, c.currentTime);
+        gain.gain.linearRampToValueAtTime(0.09, c.currentTime+0.05);
+      }, 80);
+    },
+    stop(){
+      clearInterval(timer); timer=null;
+      if(!osc) return;
+      const ctx=getCtx();
+      try{
+        gain.gain.cancelScheduledValues(ctx.currentTime);
+        gain.gain.setValueAtTime(gain.gain.value, ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0, ctx.currentTime+0.06);
+        osc.stop(ctx.currentTime+0.08);
+      }catch(e){}
+      osc=null; gain=null;
+    }
+  };
+})();
+
 /* ===== 画面フラッシュ ===== */
 const flashOverlay = document.getElementById('flashOverlay');
 function screenFlash(kind){
@@ -1284,12 +1326,11 @@ function createJankenController(opts){
     choiceButtons:stageEl.querySelectorAll('.hand-buttons button'),
     careMsg:document.getElementById(opts.careMsgId),
     resetBtn:document.getElementById(opts.resetBtnId),
-    bezelSpin:document.getElementById(opts.bezelSpinId),
-    handPanel:stageEl.querySelector('.hand-buttons')
+    bezelSpin:document.getElementById(opts.bezelSpinId)
   };
   let phase='idle';
   let currentHand='rock';
-  let handCycleTimer=null, trillTimer=null;
+  let handCycleTimer=null;
 
   function startHandCycle(){
     let i=0, elapsed=0;
@@ -1306,10 +1347,11 @@ function createJankenController(opts){
 
   function reset(){
     phase='idle'; currentHand='rock';
-    clearTimeout(handCycleTimer); clearInterval(trillTimer);
+    clearTimeout(handCycleTimer);
+    rouletteSound.stop();
     sparkleOff();
     if(els.bezelSpin) els.bezelSpin.classList.remove('on');
-    els.handPanel.classList.remove('live');
+    setButtonsLit(els.choiceButtons, false);   /* ボタンを消灯 */
     setHand(els.playerHand, null);
     els.playerHand.classList.remove('land-flash');
     els.choiceButtons.forEach(b=>b.classList.remove('picked','dimmed'));
@@ -1336,15 +1378,16 @@ function createJankenController(opts){
     sparkleOn();
     bgm.duck(1200);
     if(els.bezelSpin) els.bezelSpin.classList.add('on');
-    els.handPanel.classList.add('live');
-    trillStep=0; trillTick(); trillTimer=setInterval(trillTick,75);
+    setButtonsLit(els.choiceButtons, true);   /* ボタンを点灯 */
+    rouletteSound.start();                    /* 押されるまで鳴らし続ける */
     startHandCycle();
   }
 
   function onPick(hand){
     if(phase!=='running') return;
     phase='result';
-    clearTimeout(handCycleTimer); clearInterval(trillTimer);
+    clearTimeout(handCycleTimer);
+    rouletteSound.stop();
     if(els.bezelSpin) els.bezelSpin.classList.remove('on');
     sparkleOff();
 
